@@ -6,6 +6,7 @@ import os
 import string
 import sys
 import threading
+import time
 import webbrowser
 
 from flask import Flask, render_template, request, jsonify
@@ -117,7 +118,19 @@ def api_start():
             if not config.get("users"):
                 return jsonify({"status": "error", "message": "No users configured"})
             USER_DIR_MAP.clear()
-            _ftp_server = setup_server(config)
+            last_err = None
+            for _attempt in range(5):
+                try:
+                    _ftp_server = setup_server(config)
+                    break
+                except OSError as e:
+                    last_err = e
+                    if e.errno in (48, 98, 10048):  # EADDRINUSE on macOS/Linux/Windows
+                        time.sleep(1)
+                    else:
+                        raise
+            else:
+                raise last_err
             _ftp_thread = threading.Thread(
                 target=_ftp_server.serve_forever, daemon=True
             )
@@ -138,8 +151,9 @@ def api_stop():
         if not _ftp_thread or not _ftp_thread.is_alive():
             return jsonify({"status": "error", "message": "FTP server is not running"})
         try:
+            _ftp_server._serving = False
             _ftp_server.close_all()
-            _ftp_thread.join(timeout=5)
+            _ftp_thread.join(timeout=10)
             if _ftp_thread.is_alive():
                 return jsonify({"status": "error", "message": "Server did not stop in time"})
             _ftp_server = None

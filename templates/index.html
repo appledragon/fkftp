@@ -1,0 +1,941 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FKFTP</title>
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'%3E%3Cdefs%3E%3ClinearGradient id='bg' x1='0%25' y1='0%25' x2='100%25' y2='100%25'%3E%3Cstop offset='0%25' stop-color='%233b82f6'/%3E%3Cstop offset='100%25' stop-color='%231d4ed8'/%3E%3C/linearGradient%3E%3ClinearGradient id='bolt' x1='0%25' y1='0%25' x2='100%25' y2='100%25'%3E%3Cstop offset='0%25' stop-color='%23fbbf24'/%3E%3Cstop offset='100%25' stop-color='%23f59e0b'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect x='16' y='16' width='480' height='480' rx='96' ry='96' fill='url(%23bg)'/%3E%3Cpath d='M128 168 h80 l24-32 h144 c12 0 20 8 20 20v0H116c-12 0-20 8-20 20v0z' fill='rgba(255,255,255,0.25)'/%3E%3Crect x='96' y='168' width='320' height='200' rx='16' fill='rgba(255,255,255,0.2)'/%3E%3Cpolygon points='296,148 216,284 268,284 224,384 336,236 280,236 320,148' fill='url(%23bolt)' stroke='%23fff' stroke-width='6' stroke-linejoin='round'/%3E%3Ctext x='256' y='464' text-anchor='middle' font-family='Arial Black,Arial,sans-serif' font-weight='900' font-size='72' fill='rgba(255,255,255,0.9)' letter-spacing='8'%3EFKFTP%3C/text%3E%3C/svg%3E">
+<style>
+:root {
+  --primary: #3b82f6; --primary-dark: #2563eb;
+  --success: #22c55e; --danger: #ef4444; --warn: #f59e0b;
+  --bg: #f1f5f9; --card: #fff; --text: #1e293b; --text2: #64748b;
+  --border: #e2e8f0; --radius: 8px;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  background: var(--bg); color: var(--text); font-size: 14px; line-height: 1.5; }
+
+/* Header */
+.header { background: var(--primary-dark); color: #fff; padding: 0 24px;
+  height: 56px; display: flex; align-items: center; justify-content: space-between;
+  position: sticky; top: 0; z-index: 100; box-shadow: 0 2px 8px rgba(0,0,0,.15); }
+.header h1 { font-size: 18px; font-weight: 600; display: flex; align-items: center; gap: 10px; }
+.header-logo { width: 28px; height: 28px; flex-shrink: 0; }
+.header-right { display: flex; align-items: center; gap: 16px; }
+.status-badge { display: flex; align-items: center; gap: 8px; font-size: 13px; }
+.status-dot { width: 10px; height: 10px; border-radius: 50%; }
+.status-dot.on  { background: var(--success); box-shadow: 0 0 6px var(--success); }
+.status-dot.off { background: #94a3b8; }
+.lang-select { height: 28px; padding: 0 6px; border: 1px solid rgba(255,255,255,.3);
+  border-radius: 4px; background: rgba(255,255,255,.15); color: #fff;
+  font-size: 12px; cursor: pointer; outline: none; }
+.lang-select option { color: #333; background: #fff; }
+
+/* Layout */
+.container { max-width: 920px; margin: 0 auto; padding: 24px 16px 80px; }
+.section { background: var(--card); border-radius: var(--radius);
+  box-shadow: 0 1px 3px rgba(0,0,0,.08); margin-bottom: 20px; overflow: hidden; }
+.section-head { padding: 16px 20px; border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; justify-content: space-between; }
+.section-head h2 { font-size: 15px; font-weight: 600; }
+.section-body { padding: 20px; }
+
+/* Form */
+.form-row { display: flex; gap: 16px; margin-bottom: 14px; flex-wrap: wrap; }
+.form-group { flex: 1; min-width: 160px; }
+.form-group label { display: block; font-size: 12px; color: var(--text2);
+  margin-bottom: 4px; font-weight: 500; }
+.form-group input, .form-group select { width: 100%; height: 36px; border: 1px solid var(--border);
+  border-radius: 4px; padding: 0 10px; font-size: 13px; background: #fff;
+  transition: border-color .15s; }
+.form-group input:focus { outline: none; border-color: var(--primary); }
+
+/* Buttons */
+.btn { height: 34px; padding: 0 16px; border: none; border-radius: 4px;
+  font-size: 13px; font-weight: 500; cursor: pointer; display: inline-flex;
+  align-items: center; gap: 6px; transition: opacity .15s; }
+.btn:hover { opacity: .85; }
+.btn-primary { background: var(--primary); color: #fff; }
+.btn-success { background: var(--success); color: #fff; }
+.btn-danger  { background: var(--danger);  color: #fff; }
+.btn-warn    { background: var(--warn);    color: #fff; }
+.btn-ghost   { background: transparent; color: var(--primary); border: 1px solid var(--border); }
+.btn-sm { height: 28px; padding: 0 10px; font-size: 12px; }
+
+/* Server control */
+.server-ctrl { display: flex; gap: 10px; flex-wrap: wrap; }
+
+/* Permissions */
+.perm-grid { display: flex; gap: 24px; flex-wrap: wrap; }
+.perm-col h4 { font-size: 12px; color: var(--text2); margin-bottom: 6px; }
+.perm-item { display: flex; align-items: center; gap: 6px; margin-bottom: 4px; font-size: 13px; }
+.perm-item input[type=checkbox] { accent-color: var(--primary); }
+
+/* Dir table */
+.dir-table { width: 100%; border-collapse: collapse; margin-top: 12px; }
+.dir-table th { text-align: left; font-size: 12px; color: var(--text2);
+  padding: 6px 8px; border-bottom: 2px solid var(--border); font-weight: 500; }
+.dir-table td { padding: 6px 8px; border-bottom: 1px solid var(--border); font-size: 13px; }
+.dir-table td input { width: 100%; height: 30px; border: 1px solid var(--border);
+  border-radius: 4px; padding: 0 8px; font-size: 13px; }
+.dir-table td input:focus { outline: none; border-color: var(--primary); }
+.dir-actions { display: flex; gap: 4px; }
+
+/* User card */
+.user-card { border: 1px solid var(--border); border-radius: var(--radius);
+  margin-bottom: 14px; }
+.user-card-head { padding: 12px 16px; background: #f8fafc; border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; justify-content: space-between; cursor: pointer; }
+.user-card-head .uname { font-weight: 600; font-size: 14px; }
+.user-card-body { padding: 16px; display: none; }
+.user-card.open .user-card-body { display: block; }
+.user-card-head .arrow { transition: transform .2s; font-size: 12px; color: var(--text2); }
+.user-card.open .user-card-head .arrow { transform: rotate(90deg); }
+
+/* Modal */
+.modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.4);
+  z-index: 200; align-items: center; justify-content: center; }
+.modal-overlay.open { display: flex; }
+.modal { background: var(--card); border-radius: var(--radius); width: 560px;
+  max-height: 80vh; display: flex; flex-direction: column;
+  box-shadow: 0 8px 32px rgba(0,0,0,.2); }
+.modal-head { padding: 14px 20px; border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; justify-content: space-between; }
+.modal-head h3 { font-size: 15px; }
+.modal-path { padding: 10px 20px; background: #f8fafc; border-bottom: 1px solid var(--border);
+  font-size: 13px; word-break: break-all; display: flex; align-items: center; gap: 8px; }
+.modal-body { flex: 1; overflow-y: auto; padding: 0; max-height: 400px; }
+.modal-foot { padding: 12px 20px; border-top: 1px solid var(--border);
+  display: flex; justify-content: flex-end; gap: 8px; }
+.dir-item { padding: 8px 20px; cursor: pointer; display: flex; align-items: center;
+  gap: 8px; font-size: 13px; border-bottom: 1px solid var(--border); }
+.dir-item:hover { background: #eff6ff; }
+.dir-item .icon { color: var(--warn); }
+
+/* Toast */
+.toast-box { position: fixed; bottom: 20px; right: 20px; z-index: 300;
+  display: flex; flex-direction: column; gap: 8px; }
+.toast { padding: 10px 18px; border-radius: 6px; color: #fff; font-size: 13px;
+  box-shadow: 0 4px 12px rgba(0,0,0,.15); animation: slideIn .3s; min-width: 200px; }
+.toast.ok   { background: var(--success); }
+.toast.err  { background: var(--danger); }
+.toast.info { background: var(--primary); }
+@keyframes slideIn { from { transform: translateX(60px); opacity: 0; } to { transform: none; opacity: 1; } }
+
+/* Footer bar */
+.footer-bar { position: fixed; bottom: 0; left: 0; right: 0; background: var(--card);
+  border-top: 1px solid var(--border); padding: 12px 24px;
+  display: flex; justify-content: center; gap: 12px; z-index: 100; }
+
+/* Checkbox toggle for auto-start */
+.toggle { display: flex; align-items: center; gap: 8px; font-size: 13px; }
+</style>
+</head>
+<body>
+
+<!-- Header -->
+<div class="header">
+  <h1><svg class="header-logo" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg"><defs><linearGradient id="hbg" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#fbbf24"/><stop offset="100%" stop-color="#f59e0b"/></linearGradient></defs><rect x="16" y="16" width="480" height="480" rx="96" fill="#fff" opacity=".15"/><path d="M128 168h80l24-32h144c12 0 20 8 20 20v0H116c-12 0-20 8-20 20v0z" fill="rgba(255,255,255,0.4)"/><rect x="96" y="168" width="320" height="200" rx="16" fill="rgba(255,255,255,0.3)"/><polygon points="296,148 216,284 268,284 224,384 336,236 280,236 320,148" fill="url(#hbg)" stroke="#fff" stroke-width="6" stroke-linejoin="round"/></svg><span data-i18n="title">FKFTP 服务管理</span></h1>
+  <div class="header-right">
+    <select class="lang-select" id="langSelect" onchange="switchLang(this.value)">
+      <option value="zh">中文</option>
+      <option value="en">English</option>
+    </select>
+    <div class="status-badge">
+      <span class="status-dot off" id="statusDot"></span>
+      <span id="statusText" data-i18n="status_stopped">未运行</span>
+    </div>
+  </div>
+</div>
+
+<div class="container">
+
+  <!-- Server Control -->
+  <div class="section">
+    <div class="section-head">
+      <h2 data-i18n="server_control">服务器控制</h2>
+      <div class="server-ctrl">
+        <button class="btn btn-success btn-sm" onclick="startServer()" data-i18n="btn_start">▶ 启动</button>
+        <button class="btn btn-danger btn-sm" onclick="stopServer()" data-i18n="btn_stop">■ 停止</button>
+        <button class="btn btn-warn btn-sm" onclick="restartServer()" data-i18n="btn_restart">↻ 重启</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Firewall (Windows only) -->
+  <div class="section win-only" id="sectionFirewall">
+    <div class="section-head">
+      <h2 data-i18n="firewall">Windows 防火墙</h2>
+      <div class="server-ctrl">
+        <button class="btn btn-primary btn-sm" onclick="firewallAdd()" data-i18n="fw_add">🛡 添加防火墙规则</button>
+        <button class="btn btn-danger btn-sm" onclick="firewallRemove()" data-i18n="fw_remove">✕ 移除防火墙规则</button>
+        <button class="btn btn-ghost btn-sm" onclick="firewallCheck()" data-i18n="fw_check">🔍 检查状态</button>
+      </div>
+    </div>
+    <div class="section-body" id="firewallStatus" style="display:none;padding:12px 20px;font-size:13px;">
+    </div>
+  </div>
+
+  <!-- Windows Service (Windows only) -->
+  <div class="section win-only" id="sectionService">
+    <div class="section-head">
+      <h2 data-i18n="win_service">Windows 服务（开机自启）</h2>
+      <div class="server-ctrl">
+        <button class="btn btn-primary btn-sm" onclick="svcInstall()" data-i18n="svc_install">📦 安装服务</button>
+        <button class="btn btn-danger btn-sm" onclick="svcUninstall()" data-i18n="svc_uninstall">✕ 卸载服务</button>
+        <button class="btn btn-ghost btn-sm" onclick="svcStatus()" data-i18n="svc_check">🔍 检查状态</button>
+      </div>
+    </div>
+    <div class="section-body" id="svcStatus" style="display:none;padding:12px 20px;font-size:13px;">
+    </div>
+  </div>
+
+  <!-- Server Settings -->
+  <div class="section">
+    <div class="section-head"><h2 data-i18n="server_settings">服务器设置</h2></div>
+    <div class="section-body">
+      <div class="form-row">
+        <div class="form-group">
+          <label data-i18n="listen_addr">监听地址</label>
+          <input id="cfg-host" value="0.0.0.0" placeholder="0.0.0.0">
+        </div>
+        <div class="form-group">
+          <label data-i18n="ftp_port">FTP 端口</label>
+          <input id="cfg-port" type="number" value="2121">
+        </div>
+        <div class="form-group">
+          <label data-i18n="web_port">Web 管理端口</label>
+          <input id="cfg-webport" type="number" value="8080">
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label data-i18n="passive_start">被动端口起始</label>
+          <input id="cfg-pstart" type="number" value="60000">
+        </div>
+        <div class="form-group">
+          <label data-i18n="passive_end">被动端口结束</label>
+          <input id="cfg-pend" type="number" value="65535">
+        </div>
+        <div class="form-group">
+          <label data-i18n="max_conn">最大连接数</label>
+          <input id="cfg-maxcon" type="number" value="256">
+        </div>
+        <div class="form-group">
+          <label data-i18n="max_conn_ip">单 IP 最大连接</label>
+          <input id="cfg-maxip" type="number" value="5">
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group" style="flex:2">
+          <label data-i18n="banner">欢迎横幅</label>
+          <input id="cfg-banner" value="Welcome to FKFTP Server.">
+        </div>
+        <div class="form-group" style="flex:0 0 auto; display:flex; align-items:flex-end;">
+          <label class="toggle">
+            <input type="checkbox" id="cfg-autostart"> <span data-i18n="auto_start">启动时自动开启 FTP</span>
+          </label>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Users -->
+  <div class="section">
+    <div class="section-head">
+      <h2 data-i18n="user_mgmt">用户管理</h2>
+      <button class="btn btn-primary btn-sm" onclick="addUser()" data-i18n="add_user">+ 添加用户</button>
+    </div>
+    <div class="section-body" id="userList">
+      <!-- dynamic user cards -->
+    </div>
+  </div>
+
+</div>
+
+<!-- Footer -->
+<div class="footer-bar">
+  <button class="btn btn-primary" onclick="saveConfig()" data-i18n="save_config">💾 保存配置</button>
+  <button class="btn btn-success" onclick="saveAndRestart()" data-i18n="save_restart">💾 保存并重启</button>
+</div>
+
+<!-- Folder Browser Modal -->
+<div class="modal-overlay" id="browserModal">
+  <div class="modal">
+    <div class="modal-head">
+      <h3 data-i18n="select_dir">选择目录</h3>
+      <button class="btn btn-ghost btn-sm" onclick="closeBrowser()">✕</button>
+    </div>
+    <div class="modal-path">
+      <button class="btn btn-ghost btn-sm" onclick="browserUp()" data-i18n="go_up">↑ 上级</button>
+      <span id="browserPath">...</span>
+    </div>
+    <div class="modal-body" id="browserList"></div>
+    <div class="modal-foot">
+      <button class="btn btn-ghost" onclick="closeBrowser()" data-i18n="cancel">取消</button>
+      <button class="btn btn-primary" onclick="selectFolder()" data-i18n="select_current">选择当前目录</button>
+    </div>
+  </div>
+</div>
+
+<!-- Toast -->
+<div class="toast-box" id="toastBox"></div>
+
+<script>
+/* ============ i18n ============ */
+const I18N = {
+  zh: {
+    title: 'FKFTP 服务管理',
+    status_running: '运行中',
+    status_stopped: '未运行',
+    server_control: '服务器控制',
+    btn_start: '▶ 启动',
+    btn_stop: '■ 停止',
+    btn_restart: '↻ 重启',
+    firewall: 'Windows 防火墙',
+    fw_add: '🛡 添加防火墙规则',
+    fw_remove: '✕ 移除防火墙规则',
+    fw_check: '🔍 检查状态',
+    win_service: 'Windows 服务（开机自启）',
+    svc_install: '📦 安装服务',
+    svc_uninstall: '✕ 卸载服务',
+    svc_check: '🔍 检查状态',
+    server_settings: '服务器设置',
+    listen_addr: '监听地址',
+    ftp_port: 'FTP 端口',
+    web_port: 'Web 管理端口',
+    passive_start: '被动端口起始',
+    passive_end: '被动端口结束',
+    max_conn: '最大连接数',
+    max_conn_ip: '单 IP 最大连接',
+    banner: '欢迎横幅',
+    auto_start: '启动时自动开启 FTP',
+    user_mgmt: '用户管理',
+    add_user: '+ 添加用户',
+    save_config: '💾 保存配置',
+    save_restart: '💾 保存并重启',
+    select_dir: '选择目录',
+    go_up: '↑ 上级',
+    cancel: '取消',
+    select_current: '选择当前目录',
+    perm_e: '切换目录',
+    perm_l: '列出文件',
+    perm_r: '下载文件',
+    perm_a: '追加文件',
+    perm_d: '删除',
+    perm_f: '重命名',
+    perm_m: '创建目录',
+    perm_w: '上传文件',
+    new_user: '新用户',
+    username: '用户名',
+    password: '密码',
+    pw_set: '（已设置，留空则不修改）',
+    pw_enter: '输入密码',
+    show_hide_pw: '显示/隐藏密码',
+    permissions: '权限',
+    select_all: '全选',
+    read_only: '仅读取',
+    clear: '清除',
+    read: '读取',
+    write: '写入',
+    dir_mapping: '目录映射',
+    mount_name: '挂载名称',
+    physical_path: '物理路径',
+    actions: '操作',
+    add_dir: '+ 添加目录',
+    delete_user: '删除此用户',
+    browse: '浏览',
+    confirm_delete_user: '确定删除此用户？',
+    mount_empty_err: '用户 "{uname}" 的挂载点名称不能为空',
+    config_saved: '配置已保存',
+    save_failed: '保存失败',
+    confirm_fw_remove: '确定移除 FKFTP 防火墙规则？',
+    fw_port_rule: 'FTP 端口规则',
+    fw_passive_rule: '被动端口规则',
+    fw_allowed: '✔ 已放行',
+    fw_blocked: '✘ 未放行',
+    check_failed: '⚠️ 检查失败',
+    confirm_svc_install: '安装 Windows 服务需要管理员权限。\n请确保已以管理员身份运行 FKFTP。\n\n继续？',
+    confirm_svc_uninstall: '确定卸载 FKFTP Windows 服务？',
+    svc_status_label: '服务状态',
+    svc_running: '✔ 运行中',
+    svc_stopped: '⏸ 已停止',
+    svc_pending: '⏳ 处理中...',
+    svc_not_installed: '未安装',
+    svc_start_btn: '▶ 启动服务',
+    svc_stop_btn: '■ 停止服务',
+    svc_install_btn: '📦 安装服务',
+    select_drive: '选择驱动器',
+    empty_dir: '（空目录）',
+    browse_failed: '浏览失败',
+  },
+  en: {
+    title: 'FKFTP Management',
+    status_running: 'Running',
+    status_stopped: 'Stopped',
+    server_control: 'Server Control',
+    btn_start: '▶ Start',
+    btn_stop: '■ Stop',
+    btn_restart: '↻ Restart',
+    firewall: 'Windows Firewall',
+    fw_add: '🛡 Add Rules',
+    fw_remove: '✕ Remove Rules',
+    fw_check: '🔍 Check Status',
+    win_service: 'Windows Service (Auto-start)',
+    svc_install: '📦 Install Service',
+    svc_uninstall: '✕ Uninstall Service',
+    svc_check: '🔍 Check Status',
+    server_settings: 'Server Settings',
+    listen_addr: 'Listen Address',
+    ftp_port: 'FTP Port',
+    web_port: 'Web Admin Port',
+    passive_start: 'Passive Port Start',
+    passive_end: 'Passive Port End',
+    max_conn: 'Max Connections',
+    max_conn_ip: 'Max Conn / IP',
+    banner: 'Welcome Banner',
+    auto_start: 'Auto-start FTP on launch',
+    user_mgmt: 'User Management',
+    add_user: '+ Add User',
+    save_config: '💾 Save Config',
+    save_restart: '💾 Save & Restart',
+    select_dir: 'Select Directory',
+    go_up: '↑ Up',
+    cancel: 'Cancel',
+    select_current: 'Select Current Directory',
+    perm_e: 'Change directory',
+    perm_l: 'List files',
+    perm_r: 'Download files',
+    perm_a: 'Append files',
+    perm_d: 'Delete',
+    perm_f: 'Rename',
+    perm_m: 'Create directory',
+    perm_w: 'Upload files',
+    new_user: 'New User',
+    username: 'Username',
+    password: 'Password',
+    pw_set: '(Set. Leave blank to keep)',
+    pw_enter: 'Enter password',
+    show_hide_pw: 'Show/Hide password',
+    permissions: 'Permissions',
+    select_all: 'All',
+    read_only: 'Read Only',
+    clear: 'Clear',
+    read: 'Read',
+    write: 'Write',
+    dir_mapping: 'Directory Mapping',
+    mount_name: 'Mount Name',
+    physical_path: 'Physical Path',
+    actions: 'Actions',
+    add_dir: '+ Add Directory',
+    delete_user: 'Delete User',
+    browse: 'Browse',
+    confirm_delete_user: 'Are you sure you want to delete this user?',
+    mount_empty_err: 'Mount name cannot be empty for user "{uname}"',
+    config_saved: 'Configuration saved',
+    save_failed: 'Save failed',
+    confirm_fw_remove: 'Remove FKFTP firewall rules?',
+    fw_port_rule: 'FTP Port Rule',
+    fw_passive_rule: 'Passive Port Rule',
+    fw_allowed: '✔ Allowed',
+    fw_blocked: '✘ Blocked',
+    check_failed: '⚠️ Check failed',
+    confirm_svc_install: 'Installing Windows service requires administrator privileges.\nPlease ensure FKFTP is running as administrator.\n\nContinue?',
+    confirm_svc_uninstall: 'Uninstall FKFTP Windows service?',
+    svc_status_label: 'Service Status',
+    svc_running: '✔ Running',
+    svc_stopped: '⏸ Stopped',
+    svc_pending: '⏳ Pending...',
+    svc_not_installed: 'Not Installed',
+    svc_start_btn: '▶ Start Service',
+    svc_stop_btn: '■ Stop Service',
+    svc_install_btn: '📦 Install Service',
+    select_drive: 'Select Drive',
+    empty_dir: '(Empty directory)',
+    browse_failed: 'Browse failed',
+  },
+};
+
+let currentLang = localStorage.getItem('fkftp_lang') || 'zh';
+
+function t(key) {
+  return (I18N[currentLang] && I18N[currentLang][key]) || (I18N.zh[key]) || key;
+}
+
+function applyI18n() {
+  document.querySelectorAll('[data-i18n]').forEach(el => {
+    el.textContent = t(el.dataset.i18n);
+  });
+  document.title = t('title');
+  document.documentElement.lang = currentLang === 'zh' ? 'zh-CN' : 'en';
+}
+
+function switchLang(lang) {
+  currentLang = lang;
+  localStorage.setItem('fkftp_lang', lang);
+  applyI18n();
+  renderUsers();
+  pollStatus();
+}
+
+function getPerms() {
+  return [
+    { key: 'e', label: t('perm_e'), group: 'read' },
+    { key: 'l', label: t('perm_l'), group: 'read' },
+    { key: 'r', label: t('perm_r'), group: 'read' },
+    { key: 'a', label: t('perm_a'), group: 'write' },
+    { key: 'd', label: t('perm_d'), group: 'write' },
+    { key: 'f', label: t('perm_f'), group: 'write' },
+    { key: 'm', label: t('perm_m'), group: 'write' },
+    { key: 'w', label: t('perm_w'), group: 'write' },
+  ];
+}
+
+/* ============ State ============ */
+let config = {};
+let browserCallback = null;
+let browserCurrent = '';
+
+/* ============ Init ============ */
+let isWindows = true;
+
+document.addEventListener('DOMContentLoaded', async () => {
+  document.getElementById('langSelect').value = currentLang;
+  applyI18n();
+  // Detect platform and hide Windows-only sections on macOS/Linux
+  try {
+    const p = await api('/api/platform');
+    isWindows = p.os === 'nt';
+  } catch(e) {}
+  if (!isWindows) {
+    document.querySelectorAll('.win-only').forEach(el => el.style.display = 'none');
+  }
+  await loadConfig();
+  pollStatus();
+  setInterval(pollStatus, 3000);
+});
+
+/* ============ API helpers ============ */
+async function api(url, opts = {}) {
+  const res = await fetch(url, opts);
+  return res.json();
+}
+function jsonPost(url, data) {
+  return api(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) });
+}
+
+/* ============ Config ============ */
+async function loadConfig() {
+  config = await api('/api/config');
+  document.getElementById('cfg-host').value    = config.host || '0.0.0.0';
+  document.getElementById('cfg-port').value    = config.port || 2121;
+  document.getElementById('cfg-webport').value = config.web_port || 8080;
+  document.getElementById('cfg-pstart').value  = (config.passive_ports || [60000])[0];
+  document.getElementById('cfg-pend').value    = (config.passive_ports || [0, 65535])[1];
+  document.getElementById('cfg-maxcon').value  = config.max_connections || 256;
+  document.getElementById('cfg-maxip').value   = config.max_connections_per_ip || 5;
+  document.getElementById('cfg-banner').value  = config.banner || '';
+  document.getElementById('cfg-autostart').checked = !!config.auto_start;
+  renderUsers();
+}
+
+function collectConfig() {
+  const c = {
+    host: document.getElementById('cfg-host').value.trim(),
+    port: parseInt(document.getElementById('cfg-port').value) || 2121,
+    web_port: parseInt(document.getElementById('cfg-webport').value) || 8080,
+    passive_ports: [
+      parseInt(document.getElementById('cfg-pstart').value) || 60000,
+      parseInt(document.getElementById('cfg-pend').value) || 65535,
+    ],
+    max_connections: parseInt(document.getElementById('cfg-maxcon').value) || 256,
+    max_connections_per_ip: parseInt(document.getElementById('cfg-maxip').value) || 5,
+    banner: document.getElementById('cfg-banner').value.trim(),
+    auto_start: document.getElementById('cfg-autostart').checked,
+    users: [],
+  };
+  document.querySelectorAll('.user-card').forEach(card => {
+    const idx = card.dataset.idx;
+    const username = card.querySelector('.u-name').value.trim();
+    if (!username) return;
+    const newPw = card.querySelector('.u-pass').value;
+    let perms = '';
+    card.querySelectorAll('.perm-cb:checked').forEach(cb => { perms += cb.dataset.perm; });
+    const dirs = {};
+    card.querySelectorAll('.dir-row').forEach(row => {
+      const mount = row.querySelector('.d-mount').value.trim();
+      const path  = row.querySelector('.d-path').value.trim();
+      if (mount && path) dirs[mount] = path;
+    });
+    const user = { username, permissions: perms, directories: dirs };
+    if (newPw) user.new_password = newPw;
+    const orig = (config.users || []).find(u => u.username === username);
+    if (orig) user.has_password = orig.has_password;
+    c.users.push(user);
+  });
+  return c;
+}
+
+async function saveConfig() {
+  let valid = true;
+  document.querySelectorAll('.user-card').forEach(card => {
+    card.querySelectorAll('.dir-row').forEach(row => {
+      const mount = row.querySelector('.d-mount').value.trim();
+      const path  = row.querySelector('.d-path').value.trim();
+      if (path && !mount) {
+        valid = false;
+        const uname = card.querySelector('.u-name').value.trim() || t('new_user');
+        toast(t('mount_empty_err').replace('{uname}', uname), 'err');
+        row.querySelector('.d-mount').focus();
+      }
+    });
+  });
+  if (!valid) return false;
+
+  const c = collectConfig();
+  const res = await jsonPost('/api/config', c);
+  if (res.status === 'ok') {
+    toast(res.message || t('config_saved'), 'ok');
+    await loadConfig();
+    return true;
+  } else {
+    toast(res.message || t('save_failed'), 'err');
+    return false;
+  }
+}
+
+async function saveAndRestart() {
+  const ok = await saveConfig();
+  if (ok) await restartServer();
+}
+
+/* ============ Server control ============ */
+async function startServer() {
+  const res = await jsonPost('/api/server/start');
+  toast(res.message, res.status === 'ok' ? 'ok' : 'err');
+  pollStatus();
+}
+async function stopServer() {
+  const res = await jsonPost('/api/server/stop');
+  toast(res.message, res.status === 'ok' ? 'ok' : 'err');
+  pollStatus();
+}
+async function restartServer() {
+  try { await jsonPost('/api/server/stop'); } catch(e) {}
+  for (let i = 0; i < 10; i++) {
+    await new Promise(r => setTimeout(r, 500));
+    const s = await api('/api/server/status');
+    if (!s.running) break;
+  }
+  const res = await jsonPost('/api/server/start');
+  toast(res.message, res.status === 'ok' ? 'ok' : 'err');
+  pollStatus();
+}
+
+async function pollStatus() {
+  try {
+    const s = await api('/api/server/status');
+    const dot  = document.getElementById('statusDot');
+    const text = document.getElementById('statusText');
+    if (s.running) {
+      dot.className = 'status-dot on';
+      text.textContent = t('status_running');
+    } else {
+      dot.className = 'status-dot off';
+      text.textContent = t('status_stopped');
+    }
+  } catch(e) {}
+}
+
+/* ============ Firewall ============ */
+async function firewallAdd() {
+  const res = await jsonPost('/api/firewall/add');
+  toast(res.message, res.status === 'ok' ? 'ok' : 'err');
+  firewallCheck();
+}
+async function firewallRemove() {
+  if (!confirm(t('confirm_fw_remove'))) return;
+  const res = await jsonPost('/api/firewall/remove');
+  toast(res.message, res.status === 'ok' ? 'ok' : 'err');
+  firewallCheck();
+}
+async function firewallCheck() {
+  const box = document.getElementById('firewallStatus');
+  box.style.display = 'block';
+  try {
+    const s = await api('/api/firewall/status');
+    if (s.status === 'error') { box.innerHTML = '⚠️ ' + s.message; return; }
+    const icon = v => v
+      ? `<span style="color:var(--success)">${t('fw_allowed')}</span>`
+      : `<span style="color:var(--danger)">${t('fw_blocked')}</span>`;
+    box.innerHTML = `${t('fw_port_rule')}: ${icon(s.server_rule)} &nbsp;&nbsp; ${t('fw_passive_rule')}: ${icon(s.passive_rule)}`;
+  } catch(e) {
+    box.innerHTML = t('check_failed');
+  }
+}
+
+/* ============ Windows Service ============ */
+async function svcInstall() {
+  if (!confirm(t('confirm_svc_install'))) return;
+  const res = await jsonPost('/api/service/install');
+  toast(res.message, res.status === 'ok' ? 'ok' : 'err');
+  svcStatus();
+}
+async function svcUninstall() {
+  if (!confirm(t('confirm_svc_uninstall'))) return;
+  const res = await jsonPost('/api/service/uninstall');
+  toast(res.message, res.status === 'ok' ? 'ok' : 'err');
+  svcStatus();
+}
+async function svcStatus() {
+  const box = document.getElementById('svcStatus');
+  box.style.display = 'block';
+  try {
+    const s = await api('/api/service/status');
+    const labels = {
+      running: `<span style="color:var(--success)">${t('svc_running')}</span>`,
+      stopped: `<span style="color:var(--warn)">${t('svc_stopped')}</span>`,
+      pending: `<span style="color:var(--warn)">${t('svc_pending')}</span>`,
+      not_installed: `<span style="color:var(--text2)">${t('svc_not_installed')}</span>`,
+    };
+    const label = labels[s.status] || s.status;
+    let html = `${t('svc_status_label')}: ${label}`;
+    if (s.status === 'stopped') {
+      html += ` &nbsp;<button class="btn btn-success btn-sm" onclick="svcStart()">${t('svc_start_btn')}</button>`;
+    } else if (s.status === 'running') {
+      html += ` &nbsp;<button class="btn btn-danger btn-sm" onclick="svcStop()">${t('svc_stop_btn')}</button>`;
+    } else if (s.status === 'not_installed') {
+      html += ` &nbsp;<button class="btn btn-primary btn-sm" onclick="svcInstall()">${t('svc_install_btn')}</button>`;
+    }
+    box.innerHTML = html;
+  } catch(e) {
+    box.innerHTML = t('check_failed');
+  }
+}
+async function svcStart() {
+  const res = await jsonPost('/api/service/start');
+  toast(res.message, res.status === 'ok' ? 'ok' : 'err');
+  svcStatus();
+}
+async function svcStop() {
+  const res = await jsonPost('/api/service/stop');
+  toast(res.message, res.status === 'ok' ? 'ok' : 'err');
+  svcStatus();
+}
+
+/* ============ User management ============ */
+function renderUsers() {
+  const list = document.getElementById('userList');
+  list.innerHTML = '';
+  (config.users || []).forEach((user, idx) => {
+    list.appendChild(createUserCard(user, idx));
+  });
+}
+
+function createUserCard(user, idx) {
+  const PERMS = getPerms();
+  const card = document.createElement('div');
+  card.className = 'user-card open';
+  card.dataset.idx = idx;
+
+  const perms = user.permissions || '';
+  const readChecks = PERMS.filter(p => p.group === 'read')
+    .map(p => `<label class="perm-item"><input type="checkbox" class="perm-cb" data-perm="${p.key}" ${perms.includes(p.key)?'checked':''}> ${p.key} - ${p.label}</label>`).join('');
+  const writeChecks = PERMS.filter(p => p.group === 'write')
+    .map(p => `<label class="perm-item"><input type="checkbox" class="perm-cb" data-perm="${p.key}" ${perms.includes(p.key)?'checked':''}> ${p.key} - ${p.label}</label>`).join('');
+
+  const dirs = user.directories || {};
+  let dirRows = '';
+  Object.entries(dirs).forEach(([mount, path]) => {
+    dirRows += dirRowHTML(mount, path);
+  });
+
+  const pwPlaceholder = user.has_password ? t('pw_set') : t('pw_enter');
+
+  card.innerHTML = `
+    <div class="user-card-head" onclick="toggleCard(this)">
+      <span class="uname">${user.username || t('new_user')}</span>
+      <span class="arrow">▶</span>
+    </div>
+    <div class="user-card-body">
+      <div class="form-row">
+        <div class="form-group">
+          <label>${t('username')}</label>
+          <input class="u-name" value="${escHTML(user.username || '')}">
+        </div>
+        <div class="form-group">
+          <label>${t('password')}</label>
+          <div style="display:flex;gap:4px;">
+            <input class="u-pass" type="password" placeholder="${pwPlaceholder}" style="flex:1;">
+            <button type="button" class="btn btn-ghost btn-sm toggle-pw" onclick="togglePw(this)" title="${t('show_hide_pw')}">👁</button>
+          </div>
+        </div>
+      </div>
+      <div style="margin-bottom:14px;">
+        <label style="font-size:12px;color:var(--text2);font-weight:500;">${t('permissions')}</label>
+        <div style="margin-top:4px;display:flex;gap:6px;margin-bottom:8px;">
+          <button class="btn btn-ghost btn-sm" onclick="setPerms(this,'all')">${t('select_all')}</button>
+          <button class="btn btn-ghost btn-sm" onclick="setPerms(this,'read')">${t('read_only')}</button>
+          <button class="btn btn-ghost btn-sm" onclick="setPerms(this,'none')">${t('clear')}</button>
+        </div>
+        <div class="perm-grid">
+          <div class="perm-col"><h4>${t('read')}</h4>${readChecks}</div>
+          <div class="perm-col"><h4>${t('write')}</h4>${writeChecks}</div>
+        </div>
+      </div>
+      <div>
+        <label style="font-size:12px;color:var(--text2);font-weight:500;">${t('dir_mapping')}</label>
+        <table class="dir-table">
+          <thead><tr><th style="width:25%">${t('mount_name')}</th><th>${t('physical_path')}</th><th style="width:100px">${t('actions')}</th></tr></thead>
+          <tbody class="dir-tbody">${dirRows}</tbody>
+        </table>
+        <button class="btn btn-ghost btn-sm" style="margin-top:8px;" onclick="addDir(this)">${t('add_dir')}</button>
+      </div>
+      <div style="margin-top:14px;text-align:right;">
+        <button class="btn btn-danger btn-sm" onclick="removeUser(this)">${t('delete_user')}</button>
+      </div>
+    </div>`;
+  return card;
+}
+
+function dirRowHTML(mount, path) {
+  return `<tr class="dir-row">
+    <td><input class="d-mount" value="${escHTML(mount)}"></td>
+    <td><input class="d-path" value="${escHTML(path)}"></td>
+    <td class="dir-actions">
+      <button class="btn btn-ghost btn-sm" onclick="browseFor(this)">${t('browse')}</button>
+      <button class="btn btn-danger btn-sm" onclick="this.closest('tr').remove()">✕</button>
+    </td></tr>`;
+}
+
+function addUser() {
+  const list = document.getElementById('userList');
+  const idx = list.children.length;
+  const card = createUserCard({ username: '', permissions: 'elr', directories: {} }, idx);
+  list.appendChild(card);
+  card.querySelector('.u-name').focus();
+}
+
+function removeUser(btn) {
+  if (confirm(t('confirm_delete_user'))) btn.closest('.user-card').remove();
+}
+
+function addDir(btn) {
+  const tbody = btn.previousElementSibling.querySelector('.dir-tbody');
+  tbody.insertAdjacentHTML('beforeend', dirRowHTML('', ''));
+}
+
+function toggleCard(head) {
+  head.closest('.user-card').classList.toggle('open');
+}
+
+function setPerms(btn, mode) {
+  const card = btn.closest('.user-card');
+  card.querySelectorAll('.perm-cb').forEach(cb => {
+    if (mode === 'all') cb.checked = true;
+    else if (mode === 'none') cb.checked = false;
+    else if (mode === 'read') {
+      const p = cb.dataset.perm;
+      cb.checked = 'elr'.includes(p);
+    }
+  });
+}
+
+/* ============ Folder browser ============ */
+function browseFor(btn) {
+  const input = btn.closest('tr').querySelector('.d-path');
+  browserCallback = val => { input.value = val; };
+  openBrowser(input.value);
+}
+
+async function openBrowser(initialPath) {
+  document.getElementById('browserModal').classList.add('open');
+  if (initialPath && initialPath.length > 2) {
+    await browseTo(initialPath);
+  } else {
+    const drives = await api('/api/drives');
+    renderDrives(drives);
+  }
+}
+
+function renderDrives(drives) {
+  browserCurrent = '';
+  document.getElementById('browserPath').textContent = t('select_drive');
+  const list = document.getElementById('browserList');
+  list.innerHTML = drives.map(d =>
+    `<div class="dir-item" onclick="browseTo('${escAttr(d)}')">
+      <span class="icon">💽</span> ${d}
+    </div>`
+  ).join('');
+}
+
+async function browseTo(path) {
+  try {
+    const data = await api('/api/browse?path=' + encodeURIComponent(path));
+    if (data.error) { toast(data.error, 'err'); return; }
+    browserCurrent = data.current;
+    document.getElementById('browserPath').textContent = data.current;
+    const list = document.getElementById('browserList');
+    list.innerHTML = data.dirs.map(d =>
+      `<div class="dir-item" onclick="browseTo('${escAttr(d.path)}')">
+        <span class="icon">📁</span> ${escHTML(d.name)}
+      </div>`
+    ).join('');
+    if (!data.dirs.length) {
+      list.innerHTML = `<div style="padding:20px;color:var(--text2);text-align:center;">${t('empty_dir')}</div>`;
+    }
+  } catch(e) {
+    toast(t('browse_failed'), 'err');
+  }
+}
+
+async function browserUp() {
+  if (!browserCurrent) {
+    const drives = await api('/api/drives');
+    renderDrives(drives);
+    return;
+  }
+  // Handle both Windows (\) and Unix (/) path separators
+  const parent = browserCurrent.replace(/[\/\\][^\/\\]*$/, '');
+  if (parent === browserCurrent || parent.length < 1 || (parent.length < 2 && parent !== '/')) {
+    const drives = await api('/api/drives');
+    renderDrives(drives);
+  } else {
+    await browseTo(parent);
+  }
+}
+
+function selectFolder() {
+  if (browserCallback && browserCurrent) {
+    browserCallback(browserCurrent);
+  }
+  closeBrowser();
+}
+
+function closeBrowser() {
+  document.getElementById('browserModal').classList.remove('open');
+  browserCallback = null;
+}
+
+/* ============ Toast ============ */
+function toast(msg, type = 'info') {
+  const box = document.getElementById('toastBox');
+  const el = document.createElement('div');
+  el.className = 'toast ' + type;
+  el.textContent = msg;
+  box.appendChild(el);
+  setTimeout(() => { el.style.opacity = '0'; setTimeout(() => el.remove(), 300); }, 3000);
+}
+
+/* ============ Helpers ============ */
+function togglePw(btn) {
+  const input = btn.closest('div').querySelector('.u-pass');
+  if (input.type === 'password') { input.type = 'text'; btn.textContent = '🙈'; }
+  else { input.type = 'password'; btn.textContent = '👁'; }
+}
+function escHTML(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
+function escAttr(s) { return s.replace(/\\/g,'\\\\').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/'/g,'&#39;').replace(/</g,'&lt;'); }
+</script>
+</body>
+</html>

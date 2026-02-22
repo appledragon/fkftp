@@ -1,0 +1,23 @@
+{
+    "host": "0.0.0.0",
+    "port": 2121,
+    "web_port": 8080,
+    "passive_ports": [
+        60000,
+        65535
+    ],
+    "max_connections": 256,
+    "max_connections_per_ip": 5,
+    "banner": "Welcome to FKFTP Server.",
+    "auto_start": false,
+    "users": [
+        {
+            "username": "admin",
+            "permissions": "elradfmw",
+            "directories": {
+                "tmp": "C:\\temp"
+            },
+            "password_hash": "394f521fd6947662cb8e47ac03d6b9bc$5cc8070aedce1a29e72c79c108a5cf6dcd9e8e8352121586bbb2b855f51ef37d"
+        }
+    ]
+}

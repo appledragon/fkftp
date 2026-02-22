@@ -1,5 +1,7 @@
 """FKFTP - FTP Server with Web Management UI."""
 
+__version__ = "0.1.0"
+
 import json
 import logging
 import os

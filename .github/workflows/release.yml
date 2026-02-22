@@ -1,0 +1,123 @@
+name: Release
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            artifact: fkftp-windows-amd64.zip
+            exe: dist/fkftp.exe
+          - os: macos-latest
+            artifact: fkftp-darwin-amd64.tar.gz
+            exe: dist/fkftp
+          - os: ubuntu-latest
+            artifact: fkftp-linux-amd64.tar.gz
+            exe: dist/fkftp
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      # ---- Build ----
+      - name: Build executable (Windows)
+        if: runner.os == 'Windows'
+        shell: cmd
+        run: |
+          pip install pywin32
+          pyinstaller --onefile ^
+            --add-data "templates;templates" ^
+            --name fkftp ^
+            --hidden-import pyasyncore ^
+            --hidden-import pyasynchat ^
+            --hidden-import pyftpdlib.handlers ^
+            --hidden-import pyftpdlib.filesystems ^
+            --hidden-import pyftpdlib.authorizers ^
+            --hidden-import win32serviceutil ^
+            --hidden-import win32service ^
+            --hidden-import win32event ^
+            --hidden-import servicemanager ^
+            --hidden-import win32api ^
+            --console ^
+            app.py
+
+      - name: Build executable (macOS / Linux)
+        if: runner.os != 'Windows'
+        run: |
+          pyinstaller --onefile \
+            --add-data "templates:templates" \
+            --name fkftp \
+            --hidden-import pyasyncore \
+            --hidden-import pyasynchat \
+            --hidden-import pyftpdlib.handlers \
+            --hidden-import pyftpdlib.filesystems \
+            --hidden-import pyftpdlib.authorizers \
+            --console \
+            app.py
+
+      - name: Verify build output
+        shell: bash
+        run: |
+          if [ "$RUNNER_OS" = "Windows" ]; then
+            test -f dist/fkftp.exe && echo "Build OK: dist/fkftp.exe"
+          else
+            test -f dist/fkftp && echo "Build OK: dist/fkftp"
+          fi
+
+      # ---- Package ----
+      - name: Package (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: Compress-Archive -Path dist/fkftp.exe -DestinationPath ${{ matrix.artifact }}
+
+      - name: Package (macOS / Linux)
+        if: runner.os != 'Windows'
+        run: tar -czf ${{ matrix.artifact }} -C dist fkftp
+
+      # ---- Upload ----
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact }}
+          path: ${{ matrix.artifact }}
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Read version from app.py
+        id: version
+        run: |
+          VERSION=$(python -c "import re; print(re.search(r'__version__\s*=\s*[\"\']([^\"\']+)', open('app.py').read()).group(1))")
+          echo "version=v${VERSION}" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          merge-multiple: true
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.version.outputs.version }}
+          name: ${{ steps.version.outputs.version }}
+          generate_release_notes: true
+          files: artifacts/*
